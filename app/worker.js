@@ -90,6 +90,8 @@ async function grant(state, run, part, index) {
   if (!rules.startsAfter(run.date, part.start)) throw new Error('This slot has already started. Search again.');
   const gmail = await mail(run.gmail);
   if (!gmail) throw new Error('Open the original Masters’ Union Gmail account to continue.');
+  // The next email may arrive in the same minute. Capture the list before the click.
+  if (index > 0 && !gmail.complete) return null;
   part.state = 'pending';
   part.grantedAt = Date.now();
   part.baseline = gmail.ids;

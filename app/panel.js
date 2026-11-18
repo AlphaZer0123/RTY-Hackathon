@@ -227,6 +227,18 @@
     }
   }
 
+  async function waitForGrant(id, index) {
+    const expiresAt = Date.now() + 118000;
+    while (Date.now() < expiresAt && !stop) {
+      const granted = await request('grant', { id, index });
+      if (granted) return granted;
+      status('Return to your Gmail inbox. Roomline will then send the reviewed second request.');
+      await new Promise(resolve => setTimeout(resolve, 1200));
+    }
+    if (stop) return null;
+    throw new Error('The Gmail inbox did not reopen. The second request was not sent.');
+  }
+
   async function book() {
     if (operation || !chosen || page !== 'review') return;
     operation = 'booking';
@@ -250,6 +262,8 @@
       renderReceipt();
       for (let index = 0; index < receipt.parts.length && !stop; index++) {
         const part = receipt.parts[index];
+        if (index > 0) await portal.restoreRoomView(context);
+        if (stop) break;
         status('Preparing request ' + (index + 1) + ' of ' + receipt.parts.length + '…');
         const prepared = await portal.prepare(chosen, context, meeting.title, part);
         if (!prepared) {
@@ -259,7 +273,9 @@
           break;
         }
         if (stop) break;
-        receipt = await request('grant', { id: runId, index });
+        const granted = await waitForGrant(runId, index);
+        if (!granted) break;
+        receipt = granted;
         renderReceipt();
         if (stop) {
           receipt = await request('abort-grant', { id: runId, index });

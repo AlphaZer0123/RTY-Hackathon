@@ -20,11 +20,15 @@ form{position:absolute;top:110px;left:10px;background:#fff;border:2px solid #000
 </style></head><body>
 <div data-room-toolbar><button>All Rooms</button><button>My Bookings</button>
 <div><div id="date-trigger"><p id="date">19 Nov 2035</p></div></div><p>Capacity</p><p>Tower</p><p>CoWork</p></div>
-<div id="cards"></div><div id="modal"></div>
+<div id="cards"></div><div id="modal"></div><section id="history-view" hidden><input placeholder="Search bookings..."><button>Upcoming Bookings</button><button>Past Bookings</button></section>
 <script>
 let day = '2035-11-19';
 const rooms = [{id:'A',name:'Sync Room',tower:'Tower A'},{id:'B',name:'Sync Room',tower:'Tower B'}];
-window.sends = []; window.opens = []; window.blockSecond = false; window.blockFirst = false; window.styledControls = false; window.openDelay = 0; window.roomLoadDelay = 0;
+window.sends = []; window.opens = []; window.blockSecond = false; window.blockFirst = false; window.styledControls = false; window.openDelay = 0; window.roomLoadDelay = 0; window.redirectAfterSend = false;
+document.querySelector('[data-room-toolbar] button').onclick = () => {
+ document.querySelector('#history-view').hidden=true;
+ document.querySelector('#cards').hidden=false;
+};
 const label = () => day.slice(8) + ' Nov 2035';
 const dateField = document.querySelector('#date');
 document.querySelector('#date-trigger').onclick = () => {
@@ -87,6 +91,10 @@ function open(room){
  form.querySelector('#send').onclick=()=>{
   window.sends.push({room:room.id,date:day,title:form.querySelector('input').value,slot:selected});
   form.remove();
+  if(window.redirectAfterSend){
+   document.querySelector('#cards').hidden=true;
+   document.querySelector('#history-view').hidden=false;
+  }
  };
  document.querySelector('#modal').append(form);
 }
@@ -244,10 +252,11 @@ test('60 minute demo sends second only after email and records partial completio
   } finally { await tab.close(); }
 });
 
-test('60 minute demo verifies both intervals with exactly two chronological sends', async () => {
+test('60 minute demo returns from CoWork history and sends two chronological requests', async () => {
   await reset();
   const tab = await page();
   try {
+    await tab.evaluate(() => {window.redirectAfterSend = true});
     await tab.setViewportSize({ width: 390, height: 820 });
     assert.equal(await tab.locator('#drawer').evaluate(drawer => drawer.getBoundingClientRect().right <= innerWidth), true);
     await prepare(tab, 60);
@@ -255,7 +264,16 @@ test('60 minute demo verifies both intervals with exactly two chronological send
     await result(tab, 'B').press('Enter');
     await tab.getByRole('button', { name: 'Book this room' }).press('Enter');
     await sends(tab, 1);
-    await deliver();
+    await inbox.evaluate(({ date, timestamp }) => {
+      location.hash = 'inbox/hour-first';
+      document.querySelector('main').innerHTML = '<h2>Room Booked (Sync Room) @ ' + date + ' 10:00 - 10:30 (IST)</h2>' +
+        '<article class="adn" data-legacy-message-id="hour-first"><span class="gD" email="noreply@mastersunion.org">CoWork</span>' +
+        '<time datetime="' + timestamp + '"></time><div class="a3s">Tower: B</div></article>';
+    }, { date, timestamp: new Date(Date.now() + 5).toISOString() });
+    await waitText(tab, 'Return to your Gmail inbox. Roomline will then send the reviewed second request.');
+    assert.equal(await count(tab), 1);
+    await inbox.goto(gmailUrl);
+    await inbox.reload();
     await sends(tab, 2);
     await deliver('10:30', '11:00');
     await waitText(tab, 'All requests confirmed.');

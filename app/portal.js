@@ -91,6 +91,23 @@
     }
   }
 
+  async function restoreRoomView(expected) {
+    if (exact(document, 'View & Book Slots').length) {
+      assertContext(expected);
+      return;
+    }
+    const actual = context();
+    const roomsTab = exact(document, 'All Rooms');
+    if (actual.date !== expected.date || actual.scope !== expected.scope ||
+        roomsTab.length !== 1 || !enabled(roomsTab[0]) ||
+        !exact(document, 'Upcoming Bookings').length || !exact(document, 'Past Bookings').length ||
+        !elements('input[placeholder*="Search bookings" i]').length) {
+      throw new Error('The CoWork date, filters, or room view changed. Search again.');
+    }
+    roomsTab[0].click();
+    await loadedRooms(expected);
+  }
+
   function calendar(base) {
     const root = base.parentElement.parentElement;
     const labels = elements('p,span', root).filter(element => /^[a-z]+ \d{4}$/i.test(raw(element)) &&
@@ -256,5 +273,5 @@
     };
   }
 
-  globalThis.RoomlinePortal = { context, loadedRooms, setDate, assertContext, check, prepare, close };
+  globalThis.RoomlinePortal = { context, loadedRooms, setDate, assertContext, restoreRoomView, check, prepare, close };
 })();

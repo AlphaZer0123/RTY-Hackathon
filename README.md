@@ -131,7 +131,7 @@ Roomline is a local Chrome extension. It uses the signed-in CoWork interface to 
 3. Open CoWork and Masters’ Union Gmail in the same Chrome profile. Reload both tabs if they were already open. Keep both tabs open when booking.
 4. Open **Roomline** on the CoWork dashboard. Enter the meeting details in IST and choose **Search rooms**.
 5. Choose a room from **Available**. Review the room, date, title, and each interval. Choose **Book this room** only when ready to send.
-6. If the receipt says **Pending confirmation**, open the candidate booking email in Gmail if needed, then choose **Check email again**. This check only reads email evidence.
+6. If the receipt says **Pending confirmation**, open the candidate booking email in Gmail if needed, then choose **Check email again**. This check only reads email evidence. During an active 60-minute run, return to the Gmail inbox after the first interval is confirmed if Roomline asks you to.
 
 Roomline checks the room cards loaded in the current CoWork view and shows the active filters. Change the filters in CoWork for a different view. The extension supports one date and either a 30- or 60-minute meeting. Use **My Bookings** in CoWork for cancellation. A reload keeps pending and confirmed intervals in local extension storage.
 
@@ -159,6 +159,6 @@ The browser suite loads the actual extension in an isolated profile and supplies
 
 The release check passed 9 rule tests and 16 browser tests, including two end-to-end rehearsals. The browser checks cover 30- and 60-minute bookings, exact room selection, date changes, competing tabs, reload recovery, storage failure, and partial results.
 
-In live Chrome, Roomline scanned all 10 loaded rooms and found nine with a complete 60-minute window. One 30-minute test request reached CoWork. Gmail delivered a matching confirmation. The installed build kept it pending because the live message used a new `Tower:` field. The remaining request was stopped. The updated parser supports that field and the browser suite covers the opened email format. Rechecking the saved reservation in the updated live extension remains open.
+In live Chrome, Roomline scanned all 10 loaded rooms. One exact 30-minute request reached CoWork, and the updated parser confirmed its matching Gmail message from the saved receipt without another send. In a fresh 60-minute run, Roomline confirmed the first interval and left the second unsent when CoWork redirected to My Bookings. The updated extension returns to the original room view after confirmation. The browser suite covers that redirect, the Gmail inbox handoff, and exactly two ordered sends. The complete two-request run still needs live verification.
 
 The extension uses standard desktop Chrome APIs. The Windows browser path has not been smoke-tested.
