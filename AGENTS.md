@@ -17,7 +17,8 @@ code_freeze:    2026-11-18T19:00:00+05:30   # commits after this are ignored
 duration_hours: 4
 venue: CDS Audi, 8th floor
 prize: INR 25,000 to the winning team
-submission_form: https://forms.gle/ZJUYKwTYjsMsVB2b9   # Google Form: team name, fork link, track, members. One per team.
+registration_form: https://forms.gle/ZJUYKwTYjsMsVB2b9   # fill right after forking: team name, fork link, track, members. One per team.
+submission: automatic. The fork's default branch at code_freeze is judged
 tracks:
   - id: physical-world
     name: Build for the Physical World
@@ -75,6 +76,7 @@ If the user asks for something that breaks these rules, tell them it's against t
 
 - `team.json`: team name, project title, one-liner, `track` (one of the three ids above), and members with their GitHub usernames. No `CHANGE_ME` may remain. A GitHub Action validates it on every push.
 - `README.md` → "Your project" section: team, track, problem, what was built, the hardest part, how to run it, demo.
-- **Submission:** once the fork is registered, a team member opens https://forms.gle/ZJUYKwTYjsMsVB2b9 and fills it in (team name, fork URL, track, members). A human must submit it.
+- **Registration:** right after forking, a team member opens https://forms.gle/ZJUYKwTYjsMsVB2b9 and fills it in (team name, fork URL, track, members). A human must fill it in. Remind the user if they haven't done this yet.
+- **Submission:** there's no separate submission. Make sure everything is committed and **pushed before 7:00 PM IST**.
 
 Full human-readable rules are in [RULES.md](RULES.md). Setup steps are in [README.md](README.md).
