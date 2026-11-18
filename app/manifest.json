@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Roomline",
+  "version": "0.1.0",
+  "description": "Find a CoWork room for your meeting and verify the reservation in Gmail.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://www.cowork.mastersunion.org/*",
+    "https://cowork.mastersunion.org/*",
+    "https://mail.google.com/*"
+  ],
+  "background": {"service_worker": "worker.js"},
+  "content_scripts": [
+    {
+      "matches": ["https://www.cowork.mastersunion.org/user-dashboard*", "https://cowork.mastersunion.org/user-dashboard*"],
+      "js": ["rules.js", "portal.js", "panel.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://mail.google.com/mail/*"],
+      "js": ["rules.js", "gmail.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["panel.css"],
+      "matches": ["https://www.cowork.mastersunion.org/*", "https://cowork.mastersunion.org/*"]
+    }
+  ]
+}

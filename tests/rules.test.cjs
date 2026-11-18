@@ -1,0 +1,52 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const rules = require('../app/rules.js');
+
+const future = { date: '2035-11-19', start: '10:30', title: '  Team meeting  ', duration: 60 };
+const today = Date.parse('2035-11-19T10:20:00+05:30');
+test('plans contiguous intervals with the given title and an IST date', () => {
+  assert.deepEqual(rules.meeting(future, today), {
+    date: future.date, title: 'Team meeting', duration: 60,
+    parts: [{ start: 630, end: 660 }, { start: 660, end: 690 }]
+  });
+  assert.equal(rules.meeting({ ...future, duration: 30 }, today).parts.length, 1);
+});
+test('rejects invalid dates, invalid starts, past starts, midnight and unsupported durations', () => {
+  for (const change of [{ date: '2035-02-29' }, { start: '10:19' }, { start: '10:15' },
+    { start: '23:30' }, { start: '25:00' }, { duration: 45 }, { title: '' }]) {
+    assert.throws(() => rules.meeting({ ...future, ...change }, today));
+  }
+});
+test('decodes both live date formats and common booking email times', () => {
+  for (const label of ['18 Nov 2026', 'Nov 18-2026', 'Nov 18, 2026']) assert.equal(rules.dateLabel(label), '2026-11-18');
+  assert.equal(rules.dateLabel('31 Apr 2026'), '');
+  assert.equal(rules.minute('12:05 AM'), 5);
+  assert.equal(rules.minute('12:05 PM'), 725);
+  assert.equal(rules.minute('00:01 PM'), -1);
+});
+test('protects overlapping intervals across title edits and allows adjacent intervals', () => {
+  const run = { room: { id: 'tower/a' }, date: future.date, title: 'Original',
+    parts: [{ start: 600, end: 630, state: 'pending' }] };
+  assert.equal(rules.conflicts([run], run.room, run.date, { start: 615, end: 645 }), true);
+  assert.equal(rules.conflicts([run], run.room, run.date, { start: 630, end: 660 }), false);
+  assert.equal(rules.conflicts([run], { id: 'tower/b' }, run.date, { start: 615, end: 645 }), false);
+});
+test('parses Gmail booking subject and tower from the preview without reading a title', () => {
+  assert.deepEqual(rules.parseBooking('Room Booked (MVP-712 (Podcast)) @ 2035-11-19 10:30 - 11:00 (IST)',
+    'Your meeting has been scheduled. Room Name. MVP-712 (Podcast) Location. Tower CDS - 07th Floor Time. 10:30'), {
+    kind: 'booked', room: 'MVP-712 (Podcast)', date: future.date, start: 630, end: 660, location: 'Tower CDS - 07th Floor'
+  });
+  assert.equal(rules.parseBooking('Room Booked (MVP) @ 2035-11-19 10:30 - 11:00 (IST)', 'No location preview'), null);
+});
+test('accepts only a fresh, exact booked message with a stable reference', () => {
+  const now = Date.now();
+  const run = { room: { name: 'MVP', tower: 'Tower A' }, date: future.date };
+  const part = { start: 630, end: 660, grantedAt: now - 500, baseline: ['old'] };
+  const candidate = { id: 'new', sender: 'noreply@mastersunion.org', kind: 'booked', room: 'MVP', location: 'Tower A',
+    date: future.date, start: 630, end: 660, timestamp: now };
+  assert.equal(rules.confirmation(candidate, run, part), true);
+  for (const change of [{ id: 'old' }, { id: '' }, { sender: 'fake@mastersunion.org' }, { location: 'Tower AA' },
+    { room: 'Other' }, { date: '2035-11-20' }, { end: 675 }, { kind: 'cancelled' }, { timestamp: now - 1000 }]) {
+    assert.equal(rules.confirmation({ ...candidate, ...change }, run, part), false);
+  }
+});
