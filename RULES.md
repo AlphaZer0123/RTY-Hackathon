@@ -29,7 +29,7 @@ By forking this repo and submitting it, your team agrees to these rules.
 - One fork per team, owned by a team member
 - **Public**, from the moment you fork it until judging is over
 - Not archived or deleted
-- The link is submitted via the [submission form](https://github.com/Harman206/RTY-Hackathon/issues/new?template=submission.yml) before 7:00 PM IST
+- The link is submitted via the [submission form](https://forms.gle/ZJUYKwTYjsMsVB2b9) before 7:00 PM IST
 
 ## 5. Judging
 Each criterion is **one-third** of your score:
