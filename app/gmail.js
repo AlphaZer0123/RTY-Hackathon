@@ -27,13 +27,8 @@
       return { timestamp: Date.parse(time), minutePrecision: false };
     }
     for (const element of root.querySelectorAll('[title]')) {
-      const match = /(?:^[a-z]+,\s*)?(\d{1,2}) ([a-z]+) (\d{4}),?\s+(\d{1,2}:\d{2}(?:\s*[AP]M)?)$/i.exec(element.title);
-      if (!match) continue;
-      const date = rules.dateLabel([match[1], match[2], match[3]].join(' '));
-      const minute = rules.minute(match[4]);
-      if (date && minute >= 0) {
-        return { timestamp: Date.parse(date + 'T' + rules.time(minute) + ':00'), minutePrecision: true };
-      }
+      const timestamp = rules.mailTooltipTimestamp(element.title);
+      if (Number.isFinite(timestamp)) return { timestamp, minutePrecision: true };
     }
     return {};
   }

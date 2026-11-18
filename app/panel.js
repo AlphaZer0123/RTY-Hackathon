@@ -90,7 +90,7 @@
   }
 
   function roomLabel(room) {
-    return [room.tower, room.capacity && room.capacity + ' seats'].filter(Boolean).join(' · ');
+    return [room.site, room.tower, room.capacity && room.capacity + ' seats'].filter(Boolean).join(' · ');
   }
 
   function renderResults() {
@@ -157,8 +157,7 @@
     try {
       context = await portal.setDate(meeting.date);
       setText('scope', 'Current CoWork view · ' + context.label);
-      entries = portal.rooms(context.scope).map(({ room }) => ({ room, state: 'unchecked' }));
-      if (!entries.length) throw new Error('No room cards are loaded in this view. Change the CoWork filters and search again.');
+      entries = (await portal.loadedRooms(context)).map(({ room }) => ({ room, state: 'unchecked' }));
       const identities = new Map();
       for (const { room } of entries) identities.set(room.id, (identities.get(room.id) || 0) + 1);
       renderResults();
@@ -177,6 +176,7 @@
       }
       const available = entries.filter(entry => entry.state === 'available').length;
       status((stop ? 'Search stopped. ' : '') + available + ' available · ' + checked + ' of ' + entries.length + ' checked.');
+      setText('scope', 'Loaded rooms in ' + context.label);
     } catch (error) {
       status(error.message + ' Checked ' + checked + ' of ' + entries.length + ' rooms.', true);
     } finally {
@@ -242,8 +242,9 @@
       const ready = await portal.check(chosen, context, meeting.parts);
       if (stop) return status('Booking stopped before sending.');
       if (!ready.every(Boolean)) return status('This room no longer fits the full meeting. Search again.', true);
-      receipt = await request('begin', { room: chosen, review: meeting });
-      runId = activeId = receipt.id;
+      activeId = crypto.randomUUID();
+      receipt = await request('begin', { room: chosen, review: meeting, id: activeId });
+      runId = receipt.id;
       latest = receipt;
       show('result');
       renderReceipt();
@@ -260,9 +261,12 @@
         if (stop) break;
         receipt = await request('grant', { id: runId, index });
         renderReceipt();
-        if (stop) break;
+        if (stop) {
+          receipt = await request('abort-grant', { id: runId, index });
+          break;
+        }
         prepared.send();
-        status('Checking Masters’ Union Gmail for this request…');
+        status('Checking Masters’ Union Gmail. If the preview is incomplete, open the booking email there.');
         await prepared.settle();
         await poll(runId);
         if (receipt.parts[index].state !== 'confirmed') {
@@ -350,7 +354,7 @@
   get('history').addEventListener('click', () => { receipt = latest; status(''); show('result'); renderReceipt(); });
   chrome.runtime.onMessage.addListener((message, sender, respond) => {
     if (sender.id === chrome.runtime.id && message?.type === 'roomline-run-alive') {
-      respond({ alive: operation === 'booking' && (activeId === message.id || activeId === null) });
+      respond({ alive: operation === 'booking' && activeId === message.id });
     }
   });
 })();

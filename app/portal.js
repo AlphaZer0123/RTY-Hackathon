@@ -37,15 +37,18 @@
     const toolbar = header();
     const displayedDate = dateControl();
     const text = raw(toolbar);
-    const labels = text.replace(/\bAll Rooms\b|\bMy Bookings\b/g, '').replace(raw(displayedDate), '').trim();
+    const labels = text.replace(/All Rooms|My Bookings/g, '').replace(raw(displayedDate), '').trim();
     if (!labels) throw new Error('Roomline could not verify the CoWork location and filters.');
     const selection = [...toolbar.querySelectorAll('input:checked,select')].map(input => input.value).join('|');
-    const snapshot = toolbar.innerText.split('\n').map(rules.clean).filter(Boolean)
-      .filter(label => !['All Rooms', 'My Bookings', raw(displayedDate)].includes(label));
-    return { date: rules.dateLabel(raw(displayedDate)), label: snapshot.join(' · '), scope: rules.key(labels + '|' + selection) };
+    const snapshot = toolbar.innerText.replace(/All Rooms|My Bookings/g, '').split('\n').map(rules.clean)
+      .filter(label => label && label !== raw(displayedDate));
+    const site = snapshot.at(-1);
+    const filterLabels = snapshot.slice(0, -1).filter(label => !['Capacity', 'Tower'].includes(label));
+    return { date: rules.dateLabel(raw(displayedDate)), site,
+      label: [site, ...filterLabels].filter(Boolean).join(' · '), scope: rules.key(labels + '|' + selection) };
   }
 
-  function rooms(scope) {
+  function rooms(expected) {
     return exact(document, 'View & Book Slots').map((button, index) => {
       const card = button.closest('.respCardPad,[data-room-card]') || button.parentElement;
       const lines = card.innerText.split('\n').map(rules.clean).filter(Boolean);
@@ -55,9 +58,30 @@
       const portalId = card.getAttribute('data-room-id') || button.getAttribute('data-room-id');
       const capacity = /\b(\d+) Seats?\b/i.exec(raw(card))?.[1];
       // Filters are excluded from identity so changing a capacity filter cannot evade duplicate protection.
-      const id = JSON.stringify(portalId ? ['id', portalId] : [rules.key(name), rules.key(tower)]);
-      return { button, room: { id, name: name || 'Room ' + (index + 1), tower, capacity, scope, identified: Boolean(name && tower) } };
+      const site = expected.site;
+      const id = JSON.stringify(portalId ? ['id', portalId] : [rules.key(site), rules.key(name), rules.key(tower)]);
+      return { button, room: { id, name: name || 'Room ' + (index + 1), tower, capacity, site, identified: Boolean(name && tower) } };
     });
+  }
+
+  async function loadedRooms(expected) {
+    let previous = '';
+    let stable = 0;
+    return waitFor(() => {
+      const current = context();
+      if (current.date !== expected.date || current.scope !== expected.scope) {
+        throw new Error('The CoWork date or filters changed while rooms loaded.');
+      }
+      const cards = rooms(expected);
+      if (!cards.length || elements('[aria-busy="true"],[role="progressbar"]').length) {
+        stable = 0;
+        return null;
+      }
+      const signature = JSON.stringify(cards.map(({ room, button }) => [room.id, raw(button.parentElement)]));
+      stable = signature === previous ? stable + 1 : 0;
+      previous = signature;
+      return stable >= 2 && cards;
+    }, 'No room cards loaded for this CoWork view. Check the date or filters and try again.');
   }
 
   function assertContext(expected) {
@@ -97,6 +121,9 @@
           cell.click();
           return await waitFor(() => {
             const current = context();
+            if (!calendar(dateControl()) && current.date === target && current.scope !== initial.scope) {
+              throw new Error('CoWork changed the room filters for that date. Review the filters and search again.');
+            }
             return current.date === target && !calendar(dateControl()) &&
               !elements('[aria-busy="true"],[role="progressbar"]').length && current;
           }, 'CoWork did not switch to the requested date.');
@@ -144,7 +171,7 @@
   async function open(room, expected) {
     assertContext(expected);
     if (findForm()) throw new Error('Close the current room form first.');
-    const candidates = rooms(expected.scope).filter(candidate => candidate.room.identified && candidate.room.id === room.id);
+    const candidates = rooms(expected).filter(candidate => candidate.room.identified && candidate.room.id === room.id);
     if (candidates.length !== 1) throw new Error('The exact room could not be identified.');
     candidates[0].button.click();
     const form = await waitFor(findForm, 'CoWork did not open the room form.');
@@ -212,7 +239,7 @@
       send() {
         checkForm(form, room, expected);
         const request = exact(form, 'Request Slot');
-        if (!selection() || !selectedDuration(form) ||
+        if (!rules.startsAfter(expected.date, part.start) || !selection() || !selectedDuration(form) ||
             form.querySelector('input[placeholder*="meeting title" i]')?.value !== title ||
             request.length !== 1 || !enabled(request[0])) {
           throw new Error('The booking form changed before submission.');
@@ -229,5 +256,5 @@
     };
   }
 
-  globalThis.RoomlinePortal = { context, rooms, setDate, assertContext, check, prepare, close };
+  globalThis.RoomlinePortal = { context, loadedRooms, setDate, assertContext, check, prepare, close };
 })();

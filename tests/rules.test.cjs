@@ -50,3 +50,23 @@ test('accepts only a fresh, exact booked message with a stable reference', () =>
     assert.equal(rules.confirmation({ ...candidate, ...change }, run, part), false);
   }
 });
+
+test('reads English Gmail tooltip timestamps in both common regional layouts', () => {
+  const expected = new Date(2026, 10, 18, 17, 12).getTime();
+  assert.equal(rules.mailTooltipTimestamp('Wed, 18 Nov 2026, 17:12'), expected);
+  assert.equal(rules.mailTooltipTimestamp('Wed, Nov 18, 2026, 5:12 PM'), expected);
+  assert.ok(Number.isNaN(rules.mailTooltipTimestamp('18 Nov')));
+});
+
+test('requires a baseline before admitting minute-precision evidence in the grant minute', () => {
+  const now = Date.now();
+  const timestamp = Math.floor(now / 60000) * 60000;
+  const candidate = { id: 'candidate', sender: 'noreply@mastersunion.org', kind: 'booked',
+    date: future.date, room: 'Sync', location: 'Tower B', start: 600, end: 630,
+    timestamp, minutePrecision: true };
+  const run = { date: future.date, room: { name: 'Sync', tower: 'Tower B' } };
+  const part = { start: 600, end: 630, grantedAt: timestamp + 100, baseline: [] };
+  assert.equal(rules.confirmation(candidate, run, part), false);
+  assert.equal(rules.confirmation(candidate, run, { ...part, baselineComplete: true }), true);
+  assert.equal(rules.confirmation(candidate, run, { ...part, baselineComplete: true, baseline: ['candidate'] }), false);
+});

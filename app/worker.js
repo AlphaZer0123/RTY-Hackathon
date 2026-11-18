@@ -59,7 +59,8 @@ async function begin(state, message, sender) {
     if (alive) throw new Error('A booking is running in another Roomline tab.');
     state.active = null;
   }
-  const { room, review } = message;
+  const { room, review, id } = message;
+  if (!/^[0-9a-f-]{36}$/.test(id) || state.runs.some(run => run.id === id)) throw new Error('Invalid booking run identity.');
   if (!room?.identified || !room.id || !room.name || !room.tower) throw new Error('Choose an identified room.');
   const checked = rules.meeting({ date: review.date, start: rules.time(review.parts[0].start),
     duration: review.duration, title: review.title });
@@ -69,7 +70,7 @@ async function begin(state, message, sender) {
   const gmail = await mail();
   if (!gmail) throw new Error('Open one signed-in Masters’ Union Gmail tab in this Chrome profile.');
   const run = {
-    ...checked, room, id: crypto.randomUUID(),
+    ...checked, room, id,
     gmail: { mailboxId: gmail.mailboxId, tab: gmail.tab },
     parts: checked.parts.map(part => ({ ...part, state: 'not-sent' }))
   };
@@ -86,6 +87,7 @@ async function grant(state, run, part, index) {
   if (rules.conflicts(state.runs, run.room, run.date, part)) {
     throw new Error('A pending or confirmed request already overlaps this slot.');
   }
+  if (!rules.startsAfter(run.date, part.start)) throw new Error('This slot has already started. Search again.');
   const gmail = await mail(run.gmail);
   if (!gmail) throw new Error('Open the original Masters’ Union Gmail account to continue.');
   part.state = 'pending';
@@ -100,26 +102,32 @@ async function grant(state, run, part, index) {
 async function verify(state, run) {
   const pending = run.parts.filter(part => part.state === 'pending');
   const gmail = pending.length && await mail(run.gmail);
+  let changed = false;
   for (const part of gmail ? pending : []) {
-    const verified = new Map();
-    for (const candidate of gmail.messages) {
-      const match = rules.confirmation(candidate, run, {
-        ...part, baselineComplete: part.baselineComplete && gmail.scope === part.mailScope
-      });
-      if (match) verified.set(candidate.id, candidate);
+    const originalView = part.baselineComplete && gmail.scope === part.mailScope;
+    if (originalView) {
+      const observed = [...new Set([...(part.observed || []), ...gmail.ids.filter(id => !part.baseline.includes(id))])];
+      if (observed.length !== (part.observed?.length || 0)) {
+        part.observed = observed;
+        changed = true;
+      }
     }
-    const cancelled = gmail.messages.some(candidate =>
-      candidate.kind === 'cancelled' && rules.confirmation({ ...candidate, kind: 'booked' }, run, {
-        ...part, baselineComplete: part.baselineComplete && gmail.scope === part.mailScope
-      }));
+    const matching = candidate => rules.confirmation({ ...candidate, kind: 'booked' }, run, {
+      ...part, baselineComplete: originalView || part.observed?.includes(candidate.id)
+    });
+    const verified = new Set(gmail.messages.filter(candidate => candidate.kind === 'booked' && matching(candidate))
+      .map(candidate => candidate.id));
+    const cancelled = gmail.messages.some(candidate => candidate.kind === 'cancelled' && matching(candidate));
     if (verified.size === 1 && !cancelled) {
       part.state = 'confirmed';
       delete part.baseline;
       delete part.baselineComplete;
       delete part.mailScope;
-      await save(state);
+      delete part.observed;
+      changed = true;
     }
   }
+  if (changed) await save(state);
   return publicRun(run);
 }
 
@@ -139,6 +147,12 @@ async function handle(message, sender) {
   const part = run.parts[message.index];
   if (!part) throw new Error('Unknown booking interval.');
   if (message.action === 'grant') return grant(state, run, part, message.index);
+  if (message.action === 'abort-grant' && part.state === 'pending') {
+    // Only the owning document can report that it stopped before invoking the portal click.
+    run.parts[message.index] = { start: part.start, end: part.end, state: 'not-sent' };
+    await save(state);
+    return publicRun(run);
+  }
   if (message.action === 'unavailable' && part.state === 'not-sent') {
     part.state = 'unavailable';
     await save(state);

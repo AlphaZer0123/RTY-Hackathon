@@ -118,11 +118,43 @@ See [RULES.md](RULES.md) for the full list.
 
 ## Your project
 
-_Replace this section with your project README:_
-- **Team:**
-- **Track:**
-- **Problem:** who faces it and why it happens
-- **What we built:** the core workflow
-- **The hardest part:** how we solved it
-- **How to run it:**
-- **Demo / screenshots:**
+**Roomline** · banana boyzz · Physical World
+
+A student who needs a campus room for a group meeting has to open each room to check their exact start time. CoWork’s daily availability count does not show whether that time, or the full meeting window, is free. Roomline checks the loaded rooms and puts verified options first.
+
+Roomline is a local Chrome extension. It uses the signed-in CoWork interface to search and book, and the signed-in Masters’ Union Gmail interface to verify each reservation. A 60-minute meeting uses two consecutive 30-minute requests. The second is sent only after the first is confirmed by email. The hard part is preventing a repeated or wrong request when a slot, browser tab, or email result changes.
+
+### Install and use
+
+1. In desktop Chrome, open `chrome://extensions` and turn on **Developer mode**.
+2. Select **Load unpacked** and choose this repository’s `app` folder.
+3. Open CoWork and Masters’ Union Gmail in the same Chrome profile. Reload both tabs if they were already open. Keep both tabs open when booking.
+4. Open **Roomline** on the CoWork dashboard. Enter the meeting details in IST and choose **Search rooms**.
+5. Choose a room from **Available**. Review the room, date, title, and each interval. Choose **Book this room** only when ready to send.
+6. If the receipt says **Pending confirmation**, open the candidate booking email in Gmail if needed, then choose **Check email again**. This check only reads email evidence.
+
+Roomline checks the room cards loaded in the current CoWork view and shows the active filters. Change the filters in CoWork for a different view. The extension supports one date and either a 30- or 60-minute meeting. Use **My Bookings** in CoWork for cancellation. A reload keeps pending and confirmed intervals in local extension storage.
+
+### Test
+
+Requires Node.js 22 and Playwright’s bundled Chromium.
+
+```sh
+npm install --package-lock=false
+npx playwright-core install chromium
+npm test
+npm run test:browser
+```
+
+The browser suite loads the actual extension in an isolated profile and supplies synthetic CoWork and Gmail pages. It checks the interface and every portal submit click. Live CoWork and Gmail network requests are blocked in that profile. For a visible run on macOS, use `ROOMLINE_HEADED=1 npm run test:browser`.
+
+### Judge walkthrough
+
+1. Start with an exact meeting window and explain that the portal’s daily count does not say whether that window is free.
+2. Search for 60 minutes. Show why a room with only the first interval free is unavailable, then choose a room with both intervals free.
+3. Review the room and both intervals. Show the first confirmed by Gmail before Roomline sends the second.
+4. Show the partial-result test as the fallback example. The first interval remains confirmed when the second becomes unavailable. Refreshing or checking email again sends nothing.
+
+### Verification status
+
+The release check passed 8 rule tests and 16 browser tests, including two end-to-end rehearsals. These checks exercise 30- and 60-minute bookings, exact room selection, date changes, competing tabs, reload recovery, storage failure, and partial results. In live Chrome, the CoWork dashboard date was changed and two room forms were checked manually. The work profile’s Gmail showed the observed booking sender and stable message metadata. The Roomline scan and live booking still require verification in the installed work profile. No real booking was submitted by Roomline. The extension uses standard desktop Chrome APIs. The Windows browser path has not been smoke-tested.

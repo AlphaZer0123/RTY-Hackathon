@@ -36,13 +36,28 @@
     return pad(Math.floor(value / 60)) + ':' + pad(value % 60);
   }
 
+  function mailTooltipTimestamp(value) {
+    const text = clean(value).replace(/^[a-z]+,\s*/i, '');
+    const dayFirst = /^(\d{1,2}) ([a-z]+) (\d{4}),?\s+(\d{1,2}:\d{2}(?:\s*[AP]M)?)$/i.exec(text);
+    const monthFirst = /^([a-z]+) (\d{1,2}),? (\d{4}),?\s+(\d{1,2}:\d{2}(?:\s*[AP]M)?)$/i.exec(text);
+    if (!dayFirst && !monthFirst) return NaN;
+    const [day, month] = dayFirst ? [dayFirst[1], dayFirst[2]] : [monthFirst[2], monthFirst[1]];
+    const date = dateLabel([day, month, (dayFirst ?? monthFirst)[3]].join(' '));
+    const slot = minute((dayFirst ?? monthFirst)[4]);
+    return date && slot >= 0 ? Date.parse(date + 'T' + time(slot) + ':00') : NaN;
+  }
+
+  function startsAfter(date, start, now = Date.now()) {
+    return Date.parse(date + 'T' + time(start) + ':00+05:30') > now;
+  }
+
   function meeting({ date, start, duration, title }, now = Date.now()) {
     if (!validDate(date)) throw new Error('Choose a valid date.');
     const startMinute = minute(start);
     if (startMinute < 0 || startMinute % 15) throw new Error('Choose a start time on a quarter hour.');
     if (![30, 60].includes(duration)) throw new Error('Choose 30 or 60 minutes.');
     if (startMinute + duration >= 1440) throw new Error('Choose a time that ends before midnight.');
-    if (Date.parse(date + 'T' + time(startMinute) + ':00+05:30') <= now) throw new Error('Choose a future time in IST.');
+    if (!startsAfter(date, startMinute, now)) throw new Error('Choose a future time in IST.');
     title = clean(title);
     if (!title || title.length > 100) throw new Error('Enter a meeting title of 1 to 100 characters.');
     const parts = Array.from({ length: duration / 30 }, (_, index) => {
@@ -83,10 +98,10 @@
     const start = minute(match[4]);
     const end = minute(match[5]);
     if (!location || start < 0 || end <= start) return null;
-    return { kind: /^room booked$/i.test(match[1]) ? 'booked' : 'cancelled', room: match[2], date: match[3], start, end, location: clean(location) };
+    return { kind: /^room booked$/i.test(match[1]) ? 'booked' : 'cancelled', room: match[2], date: match[3], start, end, location: clean(location).replace(/\.$/, '') };
   }
 
-  const rules = { clean, key, validDate, dateLabel, minute, time, meeting, overlap, conflicts, confirmation, parseBooking };
+  const rules = { clean, key, validDate, dateLabel, minute, time, mailTooltipTimestamp, startsAfter, meeting, overlap, conflicts, confirmation, parseBooking };
   globalThis.RoomlineRules = rules;
   if (typeof module !== 'undefined') module.exports = rules;
 })();

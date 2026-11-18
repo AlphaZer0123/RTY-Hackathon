@@ -24,7 +24,7 @@ form{position:absolute;top:110px;left:10px;background:#fff;border:2px solid #000
 <script>
 let day = '2035-11-19';
 const rooms = [{id:'A',name:'Sync Room',tower:'Tower A'},{id:'B',name:'Sync Room',tower:'Tower B'}];
-window.sends = []; window.opens = []; window.blockSecond = false; window.openDelay = 0;
+window.sends = []; window.opens = []; window.blockSecond = false; window.blockFirst = false; window.styledControls = false; window.openDelay = 0; window.roomLoadDelay = 0;
 const label = () => day.slice(8) + ' Nov 2035';
 const dateField = document.querySelector('#date');
 document.querySelector('#date-trigger').onclick = () => {
@@ -36,7 +36,13 @@ document.querySelector('#date-trigger').onclick = () => {
   cal.innerHTML='<div><svg width="8" height="8"></svg><p>November 2035</p><svg width="8" height="8"></svg></div><div id="days"></div>';
   for(let n=1;n<=30;n++){
     const cell=document.createElement('button');cell.className='day';cell.textContent=n;
-    cell.onclick=()=>{day='2035-11-'+String(n).padStart(2,'0'); dateField.textContent=label(); cal.remove()};
+    cell.onclick=()=>{day='2035-11-'+String(n).padStart(2,'0'); dateField.textContent=label(); cal.remove();
+      if(window.roomLoadDelay){
+        const cards=document.querySelector('#cards');
+        cards.hidden=true;
+        setTimeout(()=>{cards.hidden=false},window.roomLoadDelay);
+      }
+    };
     cal.querySelector('#days').append(cell);
   }
   parent.append(cal);
@@ -52,15 +58,29 @@ function open(room){
  window.opens.push(room.id);
  const form=document.createElement('form');
  form.innerHTML='<p>'+room.name+'</p><p>'+room.tower+'</p><p>4 Seats</p><button type="button" aria-pressed="true">30 Mins.</button><button type="button">Nov '+day.slice(8)+'-2035</button><input placeholder="Enter meeting title"><p>AVAILABLE SLOTS</p><div id="times"></div><button type="button" id="cancel">Cancel</button><button type="button" id="send">Request Slot</button>';
+ const duration = form.querySelector('[aria-pressed]');
+ if(window.styledControls){
+  duration.removeAttribute('aria-pressed');
+  duration.className='fxhqIv';
+ }
  let selected='';
  for(const time of ['10:00 AM','10:30 AM']){
-  const available=time==='10:00 AM'||(room.id==='B'&&!(window.blockSecond&&window.sends.length));
+  const available=time==='10:00 AM'?!window.blockFirst:(room.id==='B'&&!(window.blockSecond&&window.sends.length));
   const slot=document.createElement(available?'button':'p');
   slot.textContent=time;
-  if(available){slot.type='button';slot.setAttribute('aria-pressed','false');slot.onclick=()=>{
-   for(const button of form.querySelectorAll('#times button'))button.setAttribute('aria-pressed','false');
-   slot.setAttribute('aria-pressed','true');selected=time;
-  }}
+  if(available){slot.type='button';
+   if(window.styledControls) slot.className='eHrrZt';
+   else slot.setAttribute('aria-pressed','false');
+   slot.onclick=()=>{
+    for(const button of form.querySelectorAll('#times button')){
+     if(window.styledControls) button.className='eHrrZt';
+     else button.setAttribute('aria-pressed','false');
+    }
+    if(window.styledControls) slot.className='dydyaH';
+    else slot.setAttribute('aria-pressed','true');
+    selected=time;
+   }
+  }
   form.querySelector('#times').append(slot);
  }
  form.querySelector('#cancel').onclick=()=>form.remove();
@@ -88,7 +108,7 @@ window.deliver = (msg) => {
 before(async () => {
   profile = await mkdtemp(join(tmpdir(), 'roomline-test-'));
   browser = await chromium.launchPersistentContext(profile, {
-    channel: 'chromium', headless: true, viewport: { width: 1100, height: 820 },
+    channel: 'chromium', headless: process.env.ROOMLINE_HEADED !== '1', viewport: { width: 1100, height: 820 },
     args: ['--disable-extensions-except=' + app, '--load-extension=' + app,
       '--host-resolver-rules=MAP *.mastersunion.org ~NOTFOUND, MAP mail.google.com ~NOTFOUND']
   });
@@ -148,6 +168,7 @@ test('search changes the date, checks duplicate-name rooms and sends zero reques
   await reset();
   const tab = await page();
   try {
+    await tab.evaluate(() => {window.roomLoadDelay = 800});
     await prepare(tab, 60, next);
     await waitText(tab, '1 available · 2 of 2 checked.');
     assert.deepEqual(await tab.evaluate(() => window.opens), ['A', 'B']);
@@ -156,6 +177,7 @@ test('search changes the date, checks duplicate-name rooms and sends zero reques
     await waitText(tab, '10:00–10:30 IST');
     await waitText(tab, '10:30–11:00 IST');
     assert.match(await tab.locator('#summary').innerText(), /2035-11-20/);
+    if (process.env.ROOMLINE_PREVIEW) await tab.locator('#drawer').screenshot({ path: process.env.ROOMLINE_PREVIEW });
     assert.equal(await count(tab), 0);
   } finally { await tab.close(); }
 });
@@ -164,8 +186,15 @@ test('stop preserves checked and unchecked rooms without sending', async () => {
   await reset();
   const tab = await page();
   try {
-    await tab.evaluate(() => {window.openDelay = 650});
+    await tab.evaluate(() => {
+      window.openDelay = 600;
+      const third = document.querySelector('[data-room-id="B"]').cloneNode(true);
+      third.dataset.roomId = 'C';
+      third.querySelector('p').textContent = 'Third Room';
+      document.querySelector('#cards').append(third);
+    });
     await prepare(tab, 30);
+    await waitText(tab, 'Checked 1 of 3 rooms.');
     await tab.getByRole('button', { name: 'Stop search' }).click();
     await tab.getByText(/Search stopped/).waitFor();
     await tab.getByRole('heading', {name:/Not checked/}).waitFor();
@@ -173,10 +202,11 @@ test('stop preserves checked and unchecked rooms without sending', async () => {
   } finally { await tab.close(); }
 });
 
-test('30 minute demo sends once and rejects wrong or stale email before confirming the exact one', async () => {
+test('30 minute demo uses observed CoWork style markers and requires exact fresh email', async () => {
   await reset();
   const tab = await page();
   try {
+    await tab.evaluate(() => {window.styledControls = true});
     await prepare(tab, 30);
     await result(tab, 'B').click();
     await deliver('10:00', '10:30', {timestamp: '2020-01-01T00:00:00Z'});
@@ -328,6 +358,119 @@ test('missing Gmail blocks the write while search remains available', async () =
     await result(tab, 'B').click();
     await tab.getByRole('button', { name: 'Book this room' }).click();
     await waitText(tab, 'Open one signed-in Masters’ Union Gmail tab in this Chrome profile.');
+    assert.equal(await count(tab), 0);
+  } finally { await tab.close(); }
+});
+
+test('an unverified selected-slot marker prevents the portal click', async () => {
+  await reset();
+  const tab = await page();
+  try {
+    await prepare(tab, 30);
+    await result(tab, 'B').click();
+    await tab.evaluate(() => {
+      const native = Element.prototype.setAttribute;
+      Element.prototype.setAttribute = function(name, value) {
+        if (this.matches('#times button') && name === 'aria-pressed' && value === 'true') return;
+        return native.call(this, name, value);
+      };
+    });
+    await tab.getByRole('button', { name: 'Book this room' }).click();
+    await waitText(tab, 'CoWork did not verify the selected time.');
+    assert.equal(await count(tab), 0);
+  } finally { await tab.close(); }
+});
+
+test('an overlapping saved request blocks a new send under a different title', async () => {
+  await reset();
+  const tab = await page();
+  try {
+    await prepare(tab, 30);
+    await result(tab, 'B').click();
+    await tab.getByRole('button', { name: 'Book this room' }).click();
+    await sends(tab, 1);
+    await deliver();
+    await waitText(tab, 'All requests confirmed.');
+    await tab.getByRole('button', { name: 'New search' }).click();
+    await tab.getByLabel('Meeting title').fill('Different title');
+    await tab.getByRole('button', { name: 'Search rooms' }).click();
+    await result(tab, 'B').click();
+    await tab.getByRole('button', { name: 'Book this room' }).click();
+    await waitText(tab, 'A pending or confirmed Roomline request overlaps this room and time.');
+    assert.equal(await count(tab), 1);
+  } finally { await tab.close(); }
+});
+
+test('opening an email with complete evidence resolves an incomplete inbox preview', async () => {
+  await reset();
+  const tab = await page();
+  try {
+    await prepare(tab, 30);
+    await result(tab, 'B').click();
+    await tab.getByRole('button', { name: 'Book this room' }).click();
+    await sends(tab, 1);
+    const timestamp = new Date(Date.now() + 5).toISOString();
+    await inbox.evaluate(({ timestamp, date }) => {
+      window.deliver({ id: 'open-email', timestamp, date, start: '10:00', end: '10:30', tower: '' });
+    }, { timestamp, date });
+    await waitText(tab, 'Pending confirmation');
+    await inbox.evaluate(({ timestamp, date }) => {
+      location.hash = 'inbox/open-email';
+      document.querySelector('main').innerHTML = '<h2>Room Booked (Sync Room) @ ' + date + ' 10:00 - 10:30 (IST)</h2>' +
+        '<article class="adn" data-legacy-message-id="open-email"><span class="gD" email="noreply@mastersunion.org">CoWork</span>' +
+        '<time datetime="' + timestamp + '"></time><div class="a3s">Room Name Sync Room Location Tower B Time 10:00</div></article>';
+    }, { timestamp, date });
+    await waitText(tab, 'Confirmed by email');
+    assert.equal(await count(tab), 1);
+  } finally {
+    await inbox.goto(gmailUrl);
+    await tab.close();
+  }
+});
+
+test('losing the Gmail account between intervals stops the next send', async () => {
+  await reset();
+  const tab = await page();
+  try {
+    await prepare(tab, 60);
+    await result(tab, 'B').click();
+    await tab.getByRole('button', { name: 'Book this room' }).click();
+    await sends(tab, 1);
+    await tab.evaluate(() => {window.openDelay = 900});
+    await deliver();
+    await waitText(tab, 'Confirmed by email');
+    await inbox.evaluate(() => document.querySelector('[aria-label*="Google Account"]').remove());
+    await waitText(tab, 'Open the original Masters’ Union Gmail account to continue.');
+    await waitText(tab, 'Not sent');
+    assert.equal(await count(tab), 1);
+  } finally { await tab.close(); }
+});
+
+test('a slot taken after search blocks booking before the first send', async () => {
+  await reset();
+  const tab = await page();
+  try {
+    await prepare(tab, 30);
+    await result(tab, 'B').click();
+    await tab.evaluate(() => {window.blockFirst = true});
+    await tab.getByRole('button', { name: 'Book this room' }).click();
+    await waitText(tab, 'This room no longer fits the full meeting. Search again.');
+    assert.equal(await count(tab), 0);
+  } finally { await tab.close(); }
+});
+
+test('ambiguous duplicate cards stay unchecked while the unique room is still checked', async () => {
+  await reset();
+  const tab = await page();
+  try {
+    await tab.evaluate(() => {
+      const duplicate = document.querySelector('[data-room-id="A"]').cloneNode(true);
+      document.querySelector('#cards').append(duplicate);
+    });
+    await prepare(tab, 30);
+    await waitText(tab, '1 available · 1 of 3 checked.');
+    await waitText(tab, 'Not checked · 2');
+    assert.deepEqual(await tab.evaluate(() => window.opens), ['B']);
     assert.equal(await count(tab), 0);
   } finally { await tab.close(); }
 });
