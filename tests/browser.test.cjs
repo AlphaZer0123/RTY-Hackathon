@@ -139,7 +139,7 @@ before(async () => {
   });
   await browser.route('https://**/*', route => {
     const url = new URL(route.request().url());
-    if (url.origin === new URL(portalUrl).origin && url.pathname === '/user-dashboard') {
+    if (url.origin === new URL(portalUrl).origin && ['/user-dashboard', '/launch'].includes(url.pathname)) {
       return route.fulfill({ contentType: 'text/html', body: portal });
     }
     if (url.origin === new URL(gmailUrl).origin && url.pathname === '/mail/u/0/') {
@@ -575,6 +575,27 @@ test('a late email updates the open receipt without sending a stopped interval',
     await deliver('10:00', '10:30', { inline: true });
     await waitText(tab, 'Confirmed by email');
     await waitText(tab, 'Not sent');
+    assert.equal(await count(tab), 1);
+  } finally { await tab.close(); }
+});
+
+test('a new portal tab mounts once when the launch page changes to the dashboard', async () => {
+  await reset();
+  const tab = await browser.newPage();
+  try {
+    await tab.goto(new URL('/launch', portalUrl).href);
+    assert.equal(await tab.locator('[data-roomline]').count(), 0);
+    await tab.evaluate(() => history.replaceState({}, '', '/user-dashboard'));
+    await tab.getByRole('button', { name: 'Roomline', exact: true }).click({ timeout: 4500 });
+    assert.equal(await tab.locator('[data-roomline]').count(), 1);
+    await prepare(tab, 30);
+    await waitText(tab, '2 available · 2 of 2 checked.');
+    assert.equal(await count(tab), 0);
+    await result(tab, 'B').click();
+    await tab.getByRole('button', { name: 'Book this room' }).click();
+    await sends(tab, 1);
+    await deliver();
+    await waitText(tab, 'All requests confirmed.');
     assert.equal(await count(tab), 1);
   } finally { await tab.close(); }
 });

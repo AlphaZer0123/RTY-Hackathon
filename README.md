@@ -129,7 +129,7 @@ Roomline is a local Chrome extension. It uses the signed-in CoWork interface to 
 1. In desktop Chrome, open `chrome://extensions` and turn on **Developer mode**.
 2. Select **Load unpacked** and choose this repository’s `app` folder.
 3. Open CoWork and the Masters’ Union Gmail inbox in the same Chrome profile. Reload both tabs if they were already open. Keep both tabs open when booking.
-4. Open **Roomline** on the CoWork dashboard. Enter the title, date, start time, and end time in IST. Then choose **Search rooms**.
+4. Open **Roomline** on the CoWork dashboard. The launcher also appears when you enter from Masters’ Union Marketplace. Enter the title, date, start time, and end time in IST. Then choose **Search rooms**.
 5. Choose a room from **Available**. Review the room, date, title, and each interval. Choose **Book this room** only when ready to send.
 6. Keep Gmail open while Roomline books. It checks the inbox and opens the exact confirmation if the preview is incomplete. It returns to the inbox after inspecting that message. A pending receipt continues to check while the result is open. **Check email again** also checks the evidence without sending or resuming a booking.
 

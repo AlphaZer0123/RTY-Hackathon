@@ -181,9 +181,14 @@ async function handle(message, sender) {
   throw new Error('Invalid booking action.');
 }
 
+const portalOrigin = /^https:\/\/(?:www\.)?cowork\.mastersunion\.org\//;
+const dashboardUrl = /^https:\/\/(?:www\.)?cowork\.mastersunion\.org\/user-dashboard(?:[/?#]|$)/;
+
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
+  // Chrome can retain the initial document URL after Marketplace changes the route.
+  const currentUrl = sender.tab?.url || sender.url || '';
   if (message?.type !== 'roomline-run' || sender.id !== chrome.runtime.id || sender.frameId !== 0 || !sender.tab ||
-      !/^https:\/\/(?:www\.)?cowork\.mastersunion\.org\/user-dashboard(?:[/?#]|$)/.test(sender.url || '')) return;
+      !portalOrigin.test(sender.url || '') || !dashboardUrl.test(currentUrl)) return;
   serialized(() => handle(message, sender)).then(
     value => respond({ value }),
     error => respond({ error: error.message })

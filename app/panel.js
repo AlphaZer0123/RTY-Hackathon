@@ -1,4 +1,4 @@
-(() => {
+function mountRoomline() {
   const rules = globalThis.RoomlineRules;
   const portal = globalThis.RoomlinePortal;
   const host = document.createElement('div');
@@ -397,4 +397,25 @@
       respond({ alive: operation === 'booking' && activeId === message.id });
     }
   });
+}
+
+(() => {
+  // Marketplace can enter CoWork on a different URL and change routes without reloading.
+  const navigation = window.navigation;
+  const observer = new MutationObserver(mountDashboard);
+
+  function mountDashboard() {
+    if (!/^\/user-dashboard(?:\/|$)/.test(location.pathname) || !document.body) return false;
+    observer.disconnect();
+    navigation?.removeEventListener('currententrychange', mountDashboard);
+    window.removeEventListener('popstate', mountDashboard);
+    if (!document.querySelector('[data-roomline]')) mountRoomline();
+    return true;
+  }
+
+  if (!mountDashboard()) {
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+    navigation?.addEventListener('currententrychange', mountDashboard);
+    window.addEventListener('popstate', mountDashboard);
+  }
 })();
