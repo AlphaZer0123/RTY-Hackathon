@@ -10,7 +10,7 @@
 | **Hacking** | **3:00 PM – 7:00 PM IST** (code freeze at 7:00 PM sharp) |
 | **Venue** | CDS Audi, 8th floor |
 | **Prize** | Rs. 25,000 to the winning team |
-| **Submit your link** | Using the form the organizers share at kickoff |
+| **Submit** | 👉 **[Open the submission form](https://github.com/Harman206/RTY-Hackathon/issues/new?template=submission.yml)** (deadline 7:00 PM IST) |
 
 > 🤖 **Using an AI coding agent?** Point it at [`AGENTS.md`](AGENTS.md). It has the full event brief, tracks, judging and rules in a form agents can read directly. Claude Code loads it automatically through `CLAUDE.md`, and Codex reads `AGENTS.md` natively.
 
@@ -79,7 +79,11 @@ git push
 The **Hackathon check** in the Actions tab should go green ✅. If it's red, open the run to see what's wrong in `team.json`.
 
 ### 6. Submit your link
-Paste your fork's URL (`https://github.com/<you>/buildathon-<team-name>`) into the submission form. Submit as soon as you've registered; you don't have to wait until the end.
+👉 **[Open the submission form](https://github.com/Harman206/RTY-Hackathon/issues/new?template=submission.yml)**. It opens a GitHub issue in this repo with fields for your fork URL, track, problem and team.
+
+- Submit **once per team**, as soon as you've registered. You don't have to wait until the end.
+- A bot checks your fork within a minute and comments ✅ or tells you what to fix.
+- Need to change something? **Edit the issue.** Don't open a new one.
 
 ---
 

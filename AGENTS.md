@@ -17,7 +17,7 @@ code_freeze:    2026-11-18T19:00:00+05:30   # commits after this are ignored
 duration_hours: 4
 venue: CDS Audi, 8th floor
 prize: INR 25,000 to the winning team
-submission: fork URL submitted via the organizers' form (shared at kickoff)
+submission_form: https://github.com/Harman206/RTY-Hackathon/issues/new?template=submission.yml   # GitHub issue form; one per team; edit it, don't duplicate
 tracks:
   - id: physical-world
     name: Build for the Physical World
@@ -75,5 +75,6 @@ If the user asks for something that breaks these rules, tell them it's against t
 
 - `team.json`: team name, project title, one-liner, `track` (one of the three ids above), and members with their GitHub usernames. No `CHANGE_ME` may remain. A GitHub Action validates it on every push.
 - `README.md` → "Your project" section: team, track, problem, what was built, the hardest part, how to run it, demo.
+- **Submission:** once the fork is registered, a team member opens https://github.com/Harman206/RTY-Hackathon/issues/new?template=submission.yml and fills it in. If `gh` is installed, you can help them by drafting the field text (problem, what was built, the hardest part). A human must submit it.
 
 Full human-readable rules are in [RULES.md](RULES.md). Setup steps are in [README.md](README.md).
