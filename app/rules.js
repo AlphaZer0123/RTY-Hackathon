@@ -55,7 +55,9 @@
     if (!validDate(date)) throw new Error('Choose a valid date.');
     const startMinute = minute(start);
     if (startMinute < 0 || startMinute % 15) throw new Error('Choose a start time on a quarter hour.');
-    if (![30, 60].includes(duration)) throw new Error('Choose 30 or 60 minutes.');
+    if (!Number.isInteger(duration) || duration < 30 || duration % 30) {
+      throw new Error('Choose an end time at least 30 minutes after the start, in 30-minute increments.');
+    }
     if (startMinute + duration >= 1440) throw new Error('Choose a time that ends before midnight.');
     if (!startsAfter(date, startMinute, now)) throw new Error('Choose a future time in IST.');
     title = clean(title);
@@ -78,12 +80,10 @@
     );
   }
 
-  function confirmation(candidate, run, part) {
-    const acceptedLocations = [run.room.tower, run.room.emailLocation].filter(Boolean).map(key);
+  function matchingIdentity(candidate, run, part) {
     return Boolean(candidate.id && !part.baseline?.includes(candidate.id) &&
       candidate.sender === 'noreply@mastersunion.org' && candidate.kind === 'booked' &&
       candidate.date === run.date && key(candidate.room) === key(run.room.name) &&
-      acceptedLocations.includes(key(candidate.location)) &&
       candidate.start === part.start && candidate.end === part.end &&
       Number.isFinite(candidate.timestamp) && candidate.timestamp <= Date.now() + 60000 &&
       candidate.timestamp >= (candidate.minutePrecision && part.baselineComplete
@@ -91,21 +91,35 @@
         : part.grantedAt));
   }
 
-  function parseBooking(subject, body) {
-    const match = /^(Room Booked|Booking Cancelled|Booking Canceled)\s*\((.+)\)\s*@\s*(\d{4}-\d{2}-\d{2})\s+(\d{1,2}:\d{2}(?:\s*[AP]M)?)\s*[-–]\s*(\d{1,2}:\d{2}(?:\s*[AP]M)?)\s*\(IST\)/i.exec(clean(subject));
-    if (!match || !validDate(match[3])) return null;
-    const legacy = /\bLocation[.:]?\s+(Tower\s+.+?)(?=\s+Time\b|\s+Date\b|\s+Room Name\b|$)/i.exec(clean(body))?.[1];
-    const towerFields = [...String(body ?? '').matchAll(/^[ \t]*Tower:[ \t]*(\S[^\r\n]*)/gim)]
-      .map(field => 'Tower ' + clean(field[1]).replace(/^Tower\s+/i, ''));
-    const locations = [legacy, ...towerFields].filter(Boolean).map(label => clean(label).replace(/\.$/, ''));
-    const location = new Set(locations.map(key)).size === 1 ? locations[0] : '';
-    const start = minute(match[4]);
-    const end = minute(match[5]);
-    if (!location || start < 0 || end <= start) return null;
-    return { kind: /^room booked$/i.test(match[1]) ? 'booked' : 'cancelled', room: match[2], date: match[3], start, end, location };
+  function confirmation(candidate, run, part) {
+    const locations = [run.room.tower, run.room.emailLocation].filter(Boolean).map(key);
+    return matchingIdentity(candidate, run, part) && locations.includes(key(candidate.location));
   }
 
-  const rules = { clean, key, validDate, dateLabel, minute, time, mailTooltipTimestamp, startsAfter, meeting, overlap, conflicts, confirmation, parseBooking };
+  function parseSubject(subject) {
+    const match = /^(Room Booked|Booking Cancelled|Booking Canceled)\s*\((.+)\)\s*@\s*(\d{4}-\d{2}-\d{2})\s+(\d{1,2}:\d{2}(?:\s*[AP]M)?)\s*[-–]\s*(\d{1,2}:\d{2}(?:\s*[AP]M)?)\s*\(IST\)/i.exec(clean(subject));
+    if (!match || !validDate(match[3])) return null;
+    const start = minute(match[4]);
+    const end = minute(match[5]);
+    if (start < 0 || end <= start) return null;
+    return { kind: /^room booked$/i.test(match[1]) ? 'booked' : 'cancelled', room: match[2], date: match[3], start, end };
+  }
+
+  function parseBooking(subject, body) {
+    const booking = parseSubject(subject);
+    if (!booking) return null;
+    const flat = clean(body);
+    const legacy = /\bLocation[.:]?\s+(Tower\s+.+?)(?=\s+Time\b|\s+Date\b|\s+Room Name\b|$)/i.exec(flat)?.[1];
+    const preview = /\(IST\)\s+Tower:\s*(.+?)\s+Best regards,/i.exec(flat)?.[1];
+    const towerFields = [...String(body ?? '').matchAll(/^[ \t]*Tower:[ \t]*(\S[^\r\n]*)/gim)]
+      .map(field => field[1].split(/\s+Best regards,/i)[0]);
+    const towers = [...towerFields, preview].filter(Boolean)
+      .map(tower => 'Tower ' + clean(tower).replace(/^Tower\s+/i, ''));
+    const locations = [legacy, ...towers].filter(Boolean).map(label => clean(label).replace(/\.$/, ''));
+    return new Set(locations.map(key)).size === 1 ? { ...booking, location: locations[0] } : null;
+  }
+
+  const rules = { clean, key, validDate, dateLabel, minute, time, mailTooltipTimestamp, startsAfter, meeting, overlap, conflicts, matchingIdentity, confirmation, parseSubject, parseBooking };
   globalThis.RoomlineRules = rules;
   if (typeof module !== 'undefined') module.exports = rules;
 })();

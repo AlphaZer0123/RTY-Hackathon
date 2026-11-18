@@ -21,11 +21,11 @@
         <p id="summary" class="summary" hidden></p>
         <form id="meeting">
           <label>Meeting title<input name="meetingTitle" type="text" placeholder="Team meeting" maxlength="100" required></label>
+          <label>Date<input name="date" type="date" required></label>
           <div class="fields">
-            <label>Date<input name="date" type="date" required></label>
             <label>Start time <span class="zone">IST</span><input name="start" type="time" step="900" value="10:00" required></label>
+            <label>End time <span class="zone">IST</span><input name="end" type="time" step="900" value="10:30" required></label>
           </div>
-          <label>Duration<select name="duration"><option value="30">30 minutes</option><option value="60">60 minutes</option></select></label>
           <button class="primary" id="search" type="submit">Search rooms <span aria-hidden="true">→</span></button>
         </form>
         <p id="status" class="status" role="status" aria-live="polite" hidden></p>
@@ -126,8 +126,8 @@
     const details = get('review-details');
     details.replaceChildren(make('h2', 'room-name', room.name), make('p', 'scope', roomLabel(room)));
     for (const part of meeting.parts) details.append(make('p', 'interval', interval(part.start, part.end)));
-    if (meeting.parts.length === 2) {
-      details.append(make('p', 'hint', 'CoWork receives two requests. The second is sent after the first is confirmed by email.'));
+    if (meeting.parts.length > 1) {
+      details.append(make('p', 'hint', meeting.parts.length + ' requests. Roomline confirms each by email before it sends the next one.'));
     }
     status('');
     show('review');
@@ -139,7 +139,7 @@
     if (operation) return;
     try {
       meeting = rules.meeting({ date: form.elements.date.value, start: form.elements.start.value,
-        duration: Number(form.elements.duration.value), title: form.elements.meetingTitle.value });
+        duration: rules.minute(form.elements.end.value) - rules.minute(form.elements.start.value), title: form.elements.meetingTitle.value });
     } catch (error) {
       status(error.message, true);
       return;
@@ -232,11 +232,11 @@
     while (Date.now() < expiresAt && !stop) {
       const granted = await request('grant', { id, index });
       if (granted) return granted;
-      status('Return to your Gmail inbox. Roomline will then send the reviewed second request.');
+      status('Return to your Gmail inbox. Roomline will then send the next reviewed request.');
       await new Promise(resolve => setTimeout(resolve, 1200));
     }
     if (stop) return null;
-    throw new Error('The Gmail inbox did not reopen. The second request was not sent.');
+    throw new Error('The Gmail inbox did not reopen. The remaining requests were not sent.');
   }
 
   async function book() {
@@ -282,11 +282,11 @@
           break;
         }
         prepared.send();
-        status('Checking Masters’ Union Gmail. If the preview is incomplete, open the booking email there.');
+        status('Request ' + (index + 1) + ' of ' + receipt.parts.length + ' sent. Checking Gmail…');
         await prepared.settle();
         await poll(runId);
         if (receipt.parts[index].state !== 'confirmed') {
-          status('The booking may have gone through. Open the booking email if needed, then check again.', true);
+          status('Confirmation is still pending. Roomline will keep checking this receipt. Remaining requests were not sent.', true);
           break;
         }
       }
@@ -309,17 +309,17 @@
     }
   }
 
-  async function verify() {
+  async function verify(quiet = false) {
     if (operation || !receipt) return;
     operation = 'verify';
-    renderReceipt();
+    if (!quiet) renderReceipt();
     try {
       latest = receipt = await request('verify', { id: receipt.id });
-      status(receipt.parts.some(part => part.state === 'pending')
+      if (!quiet || !receipt.parts.some(part => part.state === 'pending')) status(receipt.parts.some(part => part.state === 'pending')
         ? 'No exact match yet. Open the booking email in Masters’ Union Gmail, then check again.'
         : 'Email check complete. See the result for each request.');
     } catch (error) {
-      status(error.message, true);
+      if (!quiet) status(error.message, true);
     } finally {
       operation = '';
       renderReceipt();
@@ -365,9 +365,12 @@
   get('stop').addEventListener('click', () => { stop = true; });
   get('back').addEventListener('click', () => { status(''); show('results'); });
   get('book').addEventListener('click', book);
-  get('recheck').addEventListener('click', verify);
+  get('recheck').addEventListener('click', () => verify());
   get('new-search').addEventListener('click', () => { status(''); show('meeting'); });
-  get('history').addEventListener('click', () => { receipt = latest; status(''); show('result'); renderReceipt(); });
+  get('history').addEventListener('click', () => { receipt = latest; status(''); show('result'); renderReceipt(); if (receipt.parts.some(part => part.state === 'pending')) verify(true); });
+  setInterval(() => {
+    if (page === 'result' && !get('drawer').hidden && receipt?.parts.some(part => part.state === 'pending')) verify(true);
+  }, 6000);
   chrome.runtime.onMessage.addListener((message, sender, respond) => {
     if (sender.id === chrome.runtime.id && message?.type === 'roomline-run-alive') {
       respond({ alive: operation === 'booking' && activeId === message.id });

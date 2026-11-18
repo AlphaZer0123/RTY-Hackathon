@@ -78,3 +78,18 @@ test('parses the live Tower field without mistaking other text for the location'
   assert.equal(rules.parseBooking(subject, body.replace('Tower: A', 'Tower: CDS - 07th Floor'))?.location, 'Tower CDS - 07th Floor');
   assert.equal(rules.parseBooking(subject, body.replace('Tower: A', 'Tower:')), null);
 });
+
+test('splits a seven-hour range into fourteen adjacent requests', () => {
+  const review = rules.meeting({ ...future, start: '09:00', duration: 420 }, Date.parse('2035-11-19T08:00:00+05:30'));
+  assert.equal(review.parts.length, 14);
+  assert.deepEqual(review.parts[0], { start: 540, end: 570 });
+  assert.deepEqual(review.parts.at(-1), { start: 930, end: 960 });
+  assert.ok(review.parts.every((part, index) => index === 0 || part.start === review.parts[index - 1].end));
+});
+
+test('matches the complete live Gmail preview tower without the sign-off', () => {
+  const subject = 'Room Booked (Room A) @ 2035-11-19 22:00 - 22:30 (IST)';
+  const preview = "Room Booked ✅ Your room has been booked successfully. Room: Room A Date: 2035-11-19 Time: 22:00 - 22:30 (IST) Tower: CDS - 07th Floor Best regards, Masters' Union";
+  assert.equal(rules.parseBooking(subject, preview)?.location, 'Tower CDS - 07th Floor');
+  assert.equal(rules.parseBooking(subject, preview.split(' Best regards')[0]), null);
+});

@@ -91,7 +91,7 @@ async function grant(state, run, part, index) {
   const gmail = await mail(run.gmail);
   if (!gmail) throw new Error('Open the original Masters’ Union Gmail account to continue.');
   // The next email may arrive in the same minute. Capture the list before the click.
-  if (index > 0 && !gmail.complete) return null;
+  if (!gmail.complete) return null;
   part.state = 'pending';
   part.grantedAt = Date.now();
   part.baseline = gmail.ids;
@@ -105,6 +105,7 @@ async function verify(state, run) {
   const pending = run.parts.filter(part => part.state === 'pending');
   const gmail = pending.length && await mail(run.gmail);
   let changed = false;
+  let navigation = null;
   for (const part of gmail ? pending : []) {
     const originalView = part.baselineComplete && gmail.scope === part.mailScope;
     if (originalView) {
@@ -114,22 +115,39 @@ async function verify(state, run) {
         changed = true;
       }
     }
-    const matching = candidate => rules.confirmation({ ...candidate, kind: 'booked' }, run, {
-      ...part, baselineComplete: originalView || part.observed?.includes(candidate.id)
-    });
+    const criteria = candidate => ({ ...part, baselineComplete: originalView || part.observed?.includes(candidate.id) });
+    const matching = candidate => rules.confirmation({ ...candidate, kind: 'booked' }, run, criteria(candidate));
     const verified = new Set(gmail.messages.filter(candidate => candidate.kind === 'booked' && matching(candidate))
       .map(candidate => candidate.id));
     const cancelled = gmail.messages.some(candidate => candidate.kind === 'cancelled' && matching(candidate));
+    const previews = (gmail.previews || []).filter(candidate => candidate.kind === 'booked' &&
+      rules.matchingIdentity(candidate, run, criteria(candidate)));
+    if (gmail.inspecting && part.inspected?.id === gmail.inspecting) {
+      navigation = { type: 'roomline-return-mail', ...part.inspected };
+    } else if (gmail.complete && verified.size === 0 && !cancelled && previews.length === 1 &&
+        part.inspected?.id !== previews[0].id) {
+      part.inspected = { id: previews[0].id, scope: gmail.scope };
+      navigation = { type: 'roomline-inspect-mail', ...part.inspected };
+      changed = true;
+    }
     if (verified.size === 1 && !cancelled) {
       part.state = 'confirmed';
       delete part.baseline;
       delete part.baselineComplete;
       delete part.mailScope;
       delete part.observed;
+      delete part.inspected;
       changed = true;
     }
   }
   if (changed) await save(state);
+  if (navigation) {
+    try {
+      await chrome.tabs.sendMessage(gmail.tab, { ...navigation, mailboxId: gmail.mailboxId }, { frameId: 0 });
+    } catch {
+      // The evidence check can try again if the user opens the message.
+    }
+  }
   return publicRun(run);
 }
 

@@ -24,7 +24,7 @@ form{position:absolute;top:110px;left:10px;background:#fff;border:2px solid #000
 <script>
 let day = '2035-11-19';
 const rooms = [{id:'A',name:'Sync Room',tower:'Tower A'},{id:'B',name:'Sync Room',tower:'Tower B'}];
-window.sends = []; window.opens = []; window.blockSecond = false; window.blockFirst = false; window.styledControls = false; window.openDelay = 0; window.roomLoadDelay = 0; window.redirectAfterSend = false;
+window.sends = []; window.opens = []; window.blockSecond = false; window.blockFirst = false; window.styledControls = false; window.openDelay = 0; window.roomLoadDelay = 0; window.redirectAfterSend = false; window.extendedHours = false;
 document.querySelector('[data-room-toolbar] button').onclick = () => {
  document.querySelector('#history-view').hidden=true;
  document.querySelector('#cards').hidden=false;
@@ -68,7 +68,11 @@ function open(room){
   duration.className='fxhqIv';
  }
  let selected='';
- for(const time of ['10:00 AM','10:30 AM']){
+ const times = window.extendedHours ? Array.from({length:14}, (_,index) => {
+  const hour=10+Math.floor(index/2);
+  return (hour%12||12)+(index%2?':30 ':':00 ')+(hour<12?'AM':'PM');
+ }) : ['10:00 AM','10:30 AM'];
+ for(const time of times){
   const available=time==='10:00 AM'?!window.blockFirst:(room.id==='B'&&!(window.blockSecond&&window.sends.length));
   const slot=document.createElement(available?'button':'p');
   slot.textContent=time;
@@ -108,7 +112,20 @@ window.deliver = (msg) => {
  const cell=document.createElement('td');
  const sender=document.createElement('span');sender.setAttribute('email',msg.sender||'noreply@mastersunion.org');cell.append(sender);
  const time=document.createElement('time');time.dateTime=msg.timestamp;cell.append(time);
- cell.append('Room Booked (Sync Room) @ '+msg.date+' '+msg.start+' - '+msg.end+' (IST) Your meeting has been scheduled. Location '+msg.tower+' Time');
+ const subject='Room Booked (Sync Room) @ '+msg.date+' '+msg.start+' - '+msg.end+' (IST)';
+ const preview=msg.inline ? ' Your room has been booked successfully. Room: Sync Room Date: '+msg.date+' Time: '+msg.start+' - '+msg.end+' (IST) Tower: '+msg.tower.replace(/^Tower /,'')+' Best regards, Masters’ Union' : ' Your meeting has been scheduled. Location '+msg.tower+' Time';
+ if(msg.openBody){
+  const link=document.createElement('div');link.setAttribute('role','link');link.textContent=subject+' Incomplete preview';
+  link.onclick=()=>{
+   const main=document.querySelector('main');
+   const list=main.querySelector('table');
+   location.hash='inbox/'+msg.id;
+   main.innerHTML='<h2>'+subject+'</h2><article class="adn" data-legacy-message-id="'+msg.id+'"><span class="gD" email="'+(msg.sender||'noreply@mastersunion.org')+'">CoWork</span><time datetime="'+msg.timestamp+'"></time><div class="a3s">'+msg.openBody+'</div></article>';
+   const returnToList=()=>{if(location.hash==='#inbox'){main.replaceChildren(list);removeEventListener('hashchange',returnToList)}};
+   addEventListener('hashchange',returnToList);
+  };
+  cell.append(link);
+ } else cell.append(subject+preview);
  row.append(cell);document.querySelector('tbody').append(row);
 };
 </script></body></html>`;
@@ -149,10 +166,11 @@ async function page() {
   await page.getByRole('button', { name: 'Roomline', exact: true }).click();
   return page;
 }
+const asTime = minutes => [Math.floor(minutes / 60), minutes % 60].map(value => String(value).padStart(2, '0')).join(':');
 async function prepare(page, duration, target = date) {
   await page.getByLabel('Meeting title').fill('Team meeting');
   await page.getByLabel('Date', { exact: true }).fill(target);
-  await page.getByLabel('Duration').selectOption(String(duration));
+  await page.getByLabel('End time IST').fill(asTime(600 + duration));
   await page.getByRole('button', { name: 'Search rooms' }).click();
 }
 function result(page, tower) {
@@ -270,7 +288,7 @@ test('60 minute demo returns from CoWork history and sends two chronological req
         '<article class="adn" data-legacy-message-id="hour-first"><span class="gD" email="noreply@mastersunion.org">CoWork</span>' +
         '<time datetime="' + timestamp + '"></time><div class="a3s">Tower: B</div></article>';
     }, { date, timestamp: new Date(Date.now() + 5).toISOString() });
-    await waitText(tab, 'Return to your Gmail inbox. Roomline will then send the reviewed second request.');
+    await waitText(tab, 'Return to your Gmail inbox. Roomline will then send the next reviewed request.');
     assert.equal(await count(tab), 1);
     await inbox.goto(gmailUrl);
     await inbox.reload();
@@ -503,5 +521,60 @@ test('ambiguous duplicate cards stay unchecked while the unique room is still ch
     await waitText(tab, 'Not checked · 2');
     assert.deepEqual(await tab.evaluate(() => window.opens), ['B']);
     assert.equal(await count(tab), 0);
+  } finally { await tab.close(); }
+});
+
+test('books seven hours from start and end times using exact live-format previews', { timeout: 100000 }, async () => {
+  await reset();
+  const tab = await page();
+  try {
+    await tab.evaluate(() => {window.extendedHours = true;window.redirectAfterSend = true});
+    await prepare(tab, 420);
+    await result(tab, 'B').click();
+    await waitText(tab, '14 requests. Roomline confirms each by email before it sends the next one.');
+    assert.equal(await count(tab), 0);
+    await tab.getByRole('button', { name: 'Book this room' }).click();
+    for (let index = 0; index < 14; index++) {
+      await sends(tab, index + 1);
+      assert.equal(await count(tab), index + 1);
+      await deliver(asTime(600 + index * 30), asTime(630 + index * 30), { inline: true });
+    }
+    await waitText(tab, 'All requests confirmed.');
+    const payload = await tab.evaluate(() => window.sends);
+    assert.equal(payload.length, 14);
+    assert.ok(payload.every(item => item.room === 'B' && item.date === date && item.title === 'Team meeting'));
+    assert.equal(payload.at(-1).slot, '4:30 PM');
+  } finally { await tab.close(); }
+});
+
+test('automatically opens a unique incomplete preview and returns to the inbox', async () => {
+  await reset();
+  const tab = await page();
+  try {
+    await prepare(tab, 30);
+    await result(tab, 'B').click();
+    await tab.getByRole('button', { name: 'Book this room' }).click();
+    await sends(tab, 1);
+    await deliver('10:00', '10:30', { openBody: 'Tower: B' });
+    await waitText(tab, 'All requests confirmed.');
+    assert.equal(await inbox.evaluate(() => location.hash), '#inbox');
+    assert.equal(await count(tab), 1);
+  } finally { await tab.close(); }
+});
+
+test('a late email updates the open receipt without sending a stopped interval', async () => {
+  await reset();
+  const tab = await page();
+  try {
+    await prepare(tab, 60);
+    await result(tab, 'B').click();
+    await tab.getByRole('button', { name: 'Book this room' }).click();
+    await sends(tab, 1);
+    await tab.getByRole('button', { name: 'Stop remaining' }).click();
+    await tab.getByText(/^Stopped\./).waitFor();
+    await deliver('10:00', '10:30', { inline: true });
+    await waitText(tab, 'Confirmed by email');
+    await waitText(tab, 'Not sent');
+    assert.equal(await count(tab), 1);
   } finally { await tab.close(); }
 });
