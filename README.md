@@ -161,4 +161,6 @@ The browser suite checks a seven-hour run with 14 ordered requests, the real Gma
 
 In live Chrome, Roomline scanned all 10 loaded rooms. One exact 30-minute request reached CoWork, and the updated parser confirmed its matching Gmail message from the saved receipt without another send. In a fresh 60-minute run, Roomline confirmed the first interval and left the second unsent when CoWork redirected to My Bookings. The updated extension returns to the original room view after confirmation. The browser suite covers that redirect, the Gmail inbox handoff, and exactly two ordered sends. A complete live 60-minute run then passed on Roomline 0.1.2. Roomline confirmed the first exact interval from Gmail, returned to the room view, and sent the second reviewed interval. Gmail confirmed that interval too. Opening the two matching emails and returning to the inbox between them provided the evidence needed by the extension.
 
+Roomline 0.2.0 also confirmed a previously pending receipt directly from the live Gmail inbox without resending. In a live seven-hour search, it checked all 10 loaded rooms, found three with all 14 intervals free, and built the full review. The 14-request submission sequence passed against an isolated portal and Gmail fixture.
+
 The extension uses standard desktop Chrome APIs. The Windows browser path has not been smoke-tested.

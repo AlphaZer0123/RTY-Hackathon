@@ -18,7 +18,7 @@
       <div class="body">
         <h1 id="title" tabindex="-1">Find a room</h1>
         <p id="scope" class="scope"></p>
-        <p id="summary" class="summary" hidden></p>
+        <div id="summary" class="summary" hidden></div>
         <form id="meeting">
           <label>Meeting title<input name="meetingTitle" type="text" placeholder="Team meeting" maxlength="100" required></label>
           <label>Date<input name="date" type="date" required></label>
@@ -78,7 +78,10 @@
     for (const id of ['meeting', 'results', 'review', 'result']) get(id).hidden = id !== next;
     get('summary').hidden = next === 'meeting';
     const data = next === 'result' ? receipt : meeting;
-    if (data) setText('summary', data.title + ' · ' + data.date + ' · ' + interval(data.parts[0].start, data.parts.at(-1).end));
+    if (data) get('summary').replaceChildren(
+      make('strong', '', data.title),
+      make('span', '', data.date + ' · ' + interval(data.parts[0].start, data.parts.at(-1).end))
+    );
     const titles = { meeting: 'Find a room', results: 'Room availability', review: 'Review booking', result: 'Booking result' };
     setText('title', titles[next]);
     get('history').hidden = !latest || next !== 'meeting';
@@ -125,9 +128,16 @@
     chosen = room;
     const details = get('review-details');
     details.replaceChildren(make('h2', 'room-name', room.name), make('p', 'scope', roomLabel(room)));
-    for (const part of meeting.parts) details.append(make('p', 'interval', interval(part.start, part.end)));
-    if (meeting.parts.length > 1) {
-      details.append(make('p', 'hint', meeting.parts.length + ' requests. Roomline confirms each by email before it sends the next one.'));
+    const intervals = meeting.parts.map(part => make('p', 'interval', interval(part.start, part.end)));
+    if (intervals.length > 2) {
+      const breakdown = make('details', 'intervals', '');
+      breakdown.append(make('summary', '', 'View all ' + intervals.length + ' slots'), ...intervals);
+      details.append(breakdown);
+    } else {
+      details.append(...intervals);
+    }
+    if (intervals.length > 1) {
+      details.append(make('p', 'hint', intervals.length + ' requests. Roomline confirms each by email before it sends the next one.'));
     }
     status('');
     show('review');
@@ -205,6 +215,17 @@
     if (!receipt) return;
     const container = get('receipt');
     container.replaceChildren(make('h2', 'room-name', receipt.room.name), make('p', 'scope', roomLabel(receipt.room)));
+    if (receipt.parts.length > 1) {
+      const confirmed = receipt.parts.filter(part => part.state === 'confirmed').length;
+      const label = confirmed + ' of ' + receipt.parts.length + ' confirmed';
+      const progress = make('progress', '', label);
+      progress.max = receipt.parts.length;
+      progress.value = confirmed;
+      progress.setAttribute('aria-label', label);
+      const progressCard = make('div', 'booking-progress', '');
+      progressCard.append(make('strong', '', label), progress);
+      container.append(progressCard);
+    }
     const labels = { 'not-sent': 'Not sent', unavailable: 'Unavailable', pending: 'Pending confirmation', confirmed: 'Confirmed by email' };
     for (const part of receipt.parts) {
       const row = make('div', 'receipt-line ' + part.state, '');
