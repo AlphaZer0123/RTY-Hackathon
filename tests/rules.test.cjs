@@ -70,3 +70,11 @@ test('requires a baseline before admitting minute-precision evidence in the gran
   assert.equal(rules.confirmation(candidate, run, { ...part, baselineComplete: true }), true);
   assert.equal(rules.confirmation(candidate, run, { ...part, baselineComplete: true, baseline: ['candidate'] }), false);
 });
+
+test('parses the live Tower field without mistaking other text for the location', () => {
+  const subject = 'Room Booked (Room A) @ 2035-11-19 22:00 - 22:30 (IST)';
+  const body = 'Room Booked\nRoom: Room A\nDate: 2035-11-19\nTime: 22:00 - 22:30 (IST)\nTower: A\nBooking policy';
+  assert.equal(rules.parseBooking(subject, body)?.location, 'Tower A');
+  assert.equal(rules.parseBooking(subject, body.replace('Tower: A', 'Tower: CDS - 07th Floor'))?.location, 'Tower CDS - 07th Floor');
+  assert.equal(rules.parseBooking(subject, body.replace('Tower: A', 'Tower:')), null);
+});

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Roomline",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Find a CoWork room for your meeting and verify the reservation in Gmail.",
   "permissions": ["storage"],
   "host_permissions": [

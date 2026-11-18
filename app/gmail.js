@@ -59,7 +59,8 @@
       const text = rules.clean(root.innerText);
       const subject = subjects.exec(text)?.[0] || thread;
       if (!subject) continue;
-      const booking = rules.parseBooking(subject, text);
+      const body = root.querySelector('.a3s')?.innerText || root.innerText;
+      const booking = rules.parseBooking(subject, body);
       if (booking) messages.push({ ...booking, id: stableId(root), sender: sender(root), ...stamp(root) });
     }
     return { ids, messages, scope: location.pathname + location.hash, complete: !thread && ids.length === roots.length };

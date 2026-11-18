@@ -157,4 +157,8 @@ The browser suite loads the actual extension in an isolated profile and supplies
 
 ### Verification status
 
-The release check passed 8 rule tests and 16 browser tests, including two end-to-end rehearsals. These checks exercise 30- and 60-minute bookings, exact room selection, date changes, competing tabs, reload recovery, storage failure, and partial results. In live Chrome, the CoWork dashboard date was changed and two room forms were checked manually. The work profile’s Gmail showed the observed booking sender and stable message metadata. The Roomline scan and live booking still require verification in the installed work profile. No real booking was submitted by Roomline. The extension uses standard desktop Chrome APIs. The Windows browser path has not been smoke-tested.
+The release check passed 9 rule tests and 16 browser tests, including two end-to-end rehearsals. The browser checks cover 30- and 60-minute bookings, exact room selection, date changes, competing tabs, reload recovery, storage failure, and partial results.
+
+In live Chrome, Roomline scanned all 10 loaded rooms and found nine with a complete 60-minute window. One 30-minute test request reached CoWork. Gmail delivered a matching confirmation. The installed build kept it pending because the live message used a new `Tower:` field. The remaining request was stopped. The updated parser supports that field and the browser suite covers the opened email format. Rechecking the saved reservation in the updated live extension remains open.
+
+The extension uses standard desktop Chrome APIs. The Windows browser path has not been smoke-tested.

@@ -94,11 +94,15 @@
   function parseBooking(subject, body) {
     const match = /^(Room Booked|Booking Cancelled|Booking Canceled)\s*\((.+)\)\s*@\s*(\d{4}-\d{2}-\d{2})\s+(\d{1,2}:\d{2}(?:\s*[AP]M)?)\s*[-–]\s*(\d{1,2}:\d{2}(?:\s*[AP]M)?)\s*\(IST\)/i.exec(clean(subject));
     if (!match || !validDate(match[3])) return null;
-    const location = /\bLocation\.?\s+(Tower\s+.+?)(?=\s+Time\b|\s+Date\b|\s+Room Name\b|$)/i.exec(clean(body))?.[1];
+    const legacy = /\bLocation[.:]?\s+(Tower\s+.+?)(?=\s+Time\b|\s+Date\b|\s+Room Name\b|$)/i.exec(clean(body))?.[1];
+    const towerFields = [...String(body ?? '').matchAll(/^[ \t]*Tower:[ \t]*(\S[^\r\n]*)/gim)]
+      .map(field => 'Tower ' + clean(field[1]).replace(/^Tower\s+/i, ''));
+    const locations = [legacy, ...towerFields].filter(Boolean).map(label => clean(label).replace(/\.$/, ''));
+    const location = new Set(locations.map(key)).size === 1 ? locations[0] : '';
     const start = minute(match[4]);
     const end = minute(match[5]);
     if (!location || start < 0 || end <= start) return null;
-    return { kind: /^room booked$/i.test(match[1]) ? 'booked' : 'cancelled', room: match[2], date: match[3], start, end, location: clean(location).replace(/\.$/, '') };
+    return { kind: /^room booked$/i.test(match[1]) ? 'booked' : 'cancelled', room: match[2], date: match[3], start, end, location };
   }
 
   const rules = { clean, key, validDate, dateLabel, minute, time, mailTooltipTimestamp, startsAfter, meeting, overlap, conflicts, confirmation, parseBooking };

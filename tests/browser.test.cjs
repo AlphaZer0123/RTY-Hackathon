@@ -418,7 +418,8 @@ test('opening an email with complete evidence resolves an incomplete inbox previ
       location.hash = 'inbox/open-email';
       document.querySelector('main').innerHTML = '<h2>Room Booked (Sync Room) @ ' + date + ' 10:00 - 10:30 (IST)</h2>' +
         '<article class="adn" data-legacy-message-id="open-email"><span class="gD" email="noreply@mastersunion.org">CoWork</span>' +
-        '<time datetime="' + timestamp + '"></time><div class="a3s">Room Name Sync Room Location Tower B Time 10:00</div></article>';
+        '<time datetime="' + timestamp + '"></time><div class="a3s"><div>Room: Sync Room</div><div>Date: ' + date +
+        '</div><div>Time: 10:00 - 10:30 (IST)</div><div>Tower: B</div><div>Booking policy</div></div></article>';
     }, { timestamp, date });
     await waitText(tab, 'Confirmed by email');
     assert.equal(await count(tab), 1);
