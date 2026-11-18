@@ -19,7 +19,7 @@ jobs:
 
       - name: Genesis commit still in history
         env:
-          GENESIS_SHA: GENESIS_SHA_PLACEHOLDER
+          GENESIS_SHA: 2057b2e3397d4954a39ec282d30d66f97ca953db
         run: |
           if [ "$GENESIS_SHA" = "GENESIS_SHA_PLACEHOLDER" ]; then echo "Genesis SHA not configured, skipping."; exit 0; fi
           if git merge-base --is-ancestor "$GENESIS_SHA" HEAD; then
