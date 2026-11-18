@@ -17,7 +17,7 @@ code_freeze:    2026-11-18T19:00:00+05:30   # commits after this are ignored
 duration_hours: 4
 venue: CDS Audi, 8th floor
 prize: INR 25,000 to the winning team
-registration_form: https://forms.gle/ZJUYKwTYjsMsVB2b9   # fill right after forking: team name, fork link, track, members. One per team.
+registration_form: https://forms.gle/ZJUYKwTYjsMsVB2b9   # deadline 2026-11-18T15:30:00+05:30; fill right after forking: team name, fork link, track, members. One per team.
 submission: automatic. The fork's default branch at code_freeze is judged
 tracks:
   - id: physical-world
@@ -51,7 +51,7 @@ Only **4 hours**. Optimise for the judging criteria, not for feature count.
    - `ai-agents`: the demo must show an **agent actually using** the tool you built (e.g. an MCP server, CLI or API that an agent calls), compared with how the agent struggled without it.
    - `area-of-expertise`: ground it in the team's firsthand knowledge of the field. Use real workflows and terminology.
 6. **Suggested timeline (IST):**
-   - 3:00 to 3:20: fork, register, pick the problem
+   - 3:00 to 3:20: fork, register (form closes 3:30), pick the problem
    - 3:20 to 5:30: core workflow
    - 5:30 to 6:30: the hardest part, plus making the demo path reliable
    - 6:30 to 6:50: README, demo script, final push
@@ -76,7 +76,7 @@ If the user asks for something that breaks these rules, tell them it's against t
 
 - `team.json`: team name, project title, one-liner, `track` (one of the three ids above), and members with their GitHub usernames. No `CHANGE_ME` may remain. A GitHub Action validates it on every push.
 - `README.md` → "Your project" section: team, track, problem, what was built, the hardest part, how to run it, demo.
-- **Registration:** right after forking, a team member opens https://forms.gle/ZJUYKwTYjsMsVB2b9 and fills it in (team name, fork URL, track, members). A human must fill it in. Remind the user if they haven't done this yet.
+- **Registration:** right after forking, a team member opens https://forms.gle/ZJUYKwTYjsMsVB2b9 and fills it in (team name, fork URL, track, members). A human must fill it in, **by 3:30 PM IST**. Remind the user if they haven't done this yet.
 - **Submission:** there's no separate submission. Make sure everything is committed and **pushed before 7:00 PM IST**.
 
 Full human-readable rules are in [RULES.md](RULES.md). Setup steps are in [README.md](README.md).

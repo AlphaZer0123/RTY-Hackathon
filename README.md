@@ -10,7 +10,7 @@
 | **Hacking** | **3:00 PM – 7:00 PM IST** (code freeze at 7:00 PM sharp) |
 | **Venue** | CDS Audi, 8th floor |
 | **Prize** | Rs. 25,000 to the winning team |
-| **Register your fork** | 👉 **[https://forms.gle/ZJUYKwTYjsMsVB2b9](https://forms.gle/ZJUYKwTYjsMsVB2b9)** (right after you fork, at 3:00 PM) |
+| **Register your fork** | 👉 **[https://forms.gle/ZJUYKwTYjsMsVB2b9](https://forms.gle/ZJUYKwTYjsMsVB2b9)** (**deadline 3:30 PM IST**) |
 | **Final submission** | Your fork as it stands at **7:00 PM IST**. There's nothing else to submit. |
 
 > 🤖 **Using an AI coding agent?** Point it at [`AGENTS.md`](AGENTS.md). It has the full event brief, tracks, judging and rules in a form agents can read directly. Claude Code loads it automatically through `CLAUDE.md`, and Codex reads `AGENTS.md` natively.
@@ -48,7 +48,7 @@ The organizers track every fork automatically: commits, timing and activity. Rea
 
 ## ✅ Setup (about 5 minutes, do it at 3:00 PM)
 
-**In short:** fork → register your fork in the form → build → push before 7:00 PM.
+**In short:** fork → register your fork in the form **by 3:30 PM** → build → push before 7:00 PM.
 
 ### 1. Fork this repo
 Click **Fork** (top right). On the fork screen:
@@ -81,12 +81,12 @@ git push
 
 The **Hackathon check** in the Actions tab should go green ✅. If it's red, open the run to see what's wrong in `team.json`.
 
-### 6. Register your fork (do this as soon as you've forked)
+### 6. Register your fork (deadline: 3:30 PM IST)
 👉 **[https://forms.gle/ZJUYKwTYjsMsVB2b9](https://forms.gle/ZJUYKwTYjsMsVB2b9)**
 
 It's a 4-question Google Form: team name, fork link, track, team members. It connects your repo to the organizers' live tracker.
 
-- Fill it in **once per team**, right after forking. **Teams that don't register can't be tracked.**
+- Fill it in **once per team**, right after forking, and **no later than 3:30 PM IST**. **Teams that don't register can't be tracked.**
 - Paste your **fork's** URL (`https://github.com/<you>/buildathon-<team-name>`), not this starter repo's.
 - Need to change something? Use the **"Edit your response"** link on the confirmation page. Don't fill it in twice.
 - **Final submission is automatic.** Whatever is pushed to your fork at 7:00 PM IST is what gets judged.
