@@ -401,7 +401,7 @@ test('an overlapping saved request blocks a new send under a different title', a
   } finally { await tab.close(); }
 });
 
-test('opening an email with complete evidence resolves an incomplete inbox preview', async () => {
+test('opening a live-format email with a minute timestamp resolves an observed incomplete preview', async () => {
   await reset();
   const tab = await page();
   try {
@@ -414,11 +414,23 @@ test('opening an email with complete evidence resolves an incomplete inbox previ
       window.deliver({ id: 'open-email', timestamp, date, start: '10:00', end: '10:30', tower: '' });
     }, { timestamp, date });
     await waitText(tab, 'Pending confirmation');
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const observed = await worker.evaluate(async () => {
+        const state = (await chrome.storage.local.get('roomline-bookings-v1'))['roomline-bookings-v1'];
+        return state?.runs.at(-1)?.parts[0].observed?.includes('open-email');
+      });
+      if (observed) break;
+      assert.notEqual(attempt, 11, 'The inbox message ID was never observed');
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
     await inbox.evaluate(({ timestamp, date }) => {
       location.hash = 'inbox/open-email';
+      const tooltip = new Intl.DateTimeFormat('en-GB', {
+        day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+      }).format(new Date(timestamp));
       document.querySelector('main').innerHTML = '<h2>Room Booked (Sync Room) @ ' + date + ' 10:00 - 10:30 (IST)</h2>' +
         '<article class="adn" data-legacy-message-id="open-email"><span class="gD" email="noreply@mastersunion.org">CoWork</span>' +
-        '<time datetime="' + timestamp + '"></time><div class="a3s"><div>Room: Sync Room</div><div>Date: ' + date +
+        '<span title="' + tooltip + '"></span><div class="a3s"><div>Room: Sync Room</div><div>Date: ' + date +
         '</div><div>Time: 10:00 - 10:30 (IST)</div><div>Tower: B</div><div>Booking policy</div></div></article>';
     }, { timestamp, date });
     await waitText(tab, 'Confirmed by email');
